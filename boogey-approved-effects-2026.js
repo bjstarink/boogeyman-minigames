@@ -48,9 +48,9 @@
     }
     @keyframes bfxMascotGesture {
       0%, 100% { transform: translateY(0) rotate(0deg); }
-      27% { transform: translateY(-2px) rotate(-2deg); }
-      55% { transform: translateY(-3px) rotate(1.5deg); }
-      78% { transform: translateY(-1px) rotate(-.5deg); }
+      27% { transform: translateY(-2px) rotate(-4deg); }
+      55% { transform: translateY(-3px) rotate(3deg); }
+      78% { transform: translateY(-1px) rotate(-1deg); }
     }
     @keyframes bfxDownloadAck {
       0%, 100% { box-shadow: inset 0 0 0 0 rgba(185,255,53,0); }
@@ -62,9 +62,9 @@
     }
     @keyframes bfxMascotSecret {
       0%, 100% { transform: rotate(0); filter: none; }
-      25% { transform: rotate(-2deg); filter: brightness(1.12); }
-      55% { transform: rotate(2deg); filter: brightness(1.18); }
-      78% { transform: rotate(-1deg); filter: brightness(1.08); }
+      25% { transform: rotate(-4deg); filter: brightness(1.12); }
+      55% { transform: rotate(4deg); filter: brightness(1.18); }
+      78% { transform: rotate(-2deg); filter: brightness(1.08); }
     }
     @keyframes bfxStarSparkle {
       0%, 100% { opacity: 0; transform: scale(.35) rotate(-20deg); }
@@ -125,7 +125,9 @@
       const source = `${img.getAttribute('src') || ''} ${img.getAttribute('srcset') || ''}`.toLowerCase();
       let target = null;
       if (site === 'club' && alt.includes('boogeyman beater club')) {
-        target = img.closest('#jw-header-image-container, .jw-mobile-header-content');
+        target = img.closest('#jw-header-image-container, .jw-header-image-container, .jw-mobile-header-content');
+      } else if (site === 'stinkybinky' && alt.includes('stinkybinkybooks') && img.closest('#jw-header-image-container, .jw-header-image-container, .jw-mobile-header-content')) {
+        target = img.closest('#jw-header-image-container, .jw-header-image-container, .jw-mobile-header-content');
       } else if (site === 'stinkybinky' && source.includes('stinkybinky-comics-banner-1')) {
         target = img.closest('picture') || img;
       }
@@ -138,11 +140,13 @@
     if (record.type === 'attributes') {
       markMascotTargets(record.target.parentElement || document);
       markBookCards(record.target.parentElement || document);
+      initNewMotion(record.target.parentElement || document);
     }
     record.addedNodes?.forEach(node => {
       if (node.nodeType === 1) {
         markMascotTargets(node);
         markBookCards(node);
+        initNewMotion(node);
       }
     });
   })).observe(document.documentElement, {childList: true, subtree: true, attributes: true, attributeFilter: ['href', 'action', 'src', 'srcset']});
@@ -154,14 +158,15 @@
     el.style.animationDelay = `${(index % 4) * 75}ms`;
     el.classList.add('bfx-reveal');
   };
+  let revealObserver = null;
   if ('IntersectionObserver' in window) {
-    const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+    revealObserver = new IntersectionObserver(entries => entries.forEach(entry => {
       if (entry.isIntersecting) {
         animateTarget(entry.target, revealTargets.indexOf(entry.target));
-        observer.unobserve(entry.target);
+        revealObserver.unobserve(entry.target);
       }
     }), {threshold: 0.1, rootMargin: '0px 0px -4% 0px'});
-    revealTargets.forEach(el => observer.observe(el));
+    revealTargets.forEach(el => revealObserver.observe(el));
   } else {
     revealTargets.forEach(animateTarget);
   }
@@ -175,6 +180,42 @@
     img.style.setProperty('--bfx-delay', `${(index % 7) * -0.42}s`);
   });
 
+  // JouwWeb may insert more content after startup. Initialise only new nodes;
+  // never modify pop-ups or external review widgets.
+  function initNewMotion(root) {
+    if (!root || root.closest?.('.boogey-download-increase-popup, [role="dialog"]')) return;
+    const texts = [];
+    if (root.matches?.('h1,h2,h3,p,li')) texts.push(root);
+    texts.push(...(root.querySelectorAll?.('h1,h2,h3,p,li') || []));
+    texts.forEach(el => {
+      if (el.closest('.boogey-download-increase-popup, [role="dialog"]') || revealTargets.includes(el)) return;
+      revealTargets.push(el);
+      if (revealObserver) revealObserver.observe(el);
+      else animateTarget(el, revealTargets.length - 1);
+    });
+    const images = [];
+    if (root.matches?.('img')) images.push(root);
+    images.push(...(root.querySelectorAll?.('img') || []));
+    images.forEach(img => {
+      if (img.classList.contains('bfx-drift') || img.closest('.boogey-download-increase-popup, [role="dialog"]')) return;
+      const alt = (img.alt || '').toLowerCase();
+      if (img.getBoundingClientRect().width < 46 || alt.includes('trustmary') || img.src.includes('trustmary')) return;
+      const index = document.images.length;
+      img.classList.add('bfx-drift');
+      img.style.setProperty('--bfx-duration', `${5.2 + (index % 6) * 0.65}s`);
+      img.style.setProperty('--bfx-delay', `${(index % 7) * -0.42}s`);
+    });
+  }
+  function noteAudio(sound) {
+    const root = document.documentElement;
+    try {
+      const attempt = sound.play();
+      if (attempt && typeof attempt.then === 'function') {
+        attempt.then(() => { root.dataset.bfxAudioStatus = 'playing'; },
+          () => { root.dataset.bfxAudioStatus = 'blocked'; });
+      }
+    } catch (_) { root.dataset.bfxAudioStatus = 'blocked'; }
+  }
   function playSignatureSound() {
     const now = Date.now();
     if (muted || now - lastSoundAt < 420) return;
@@ -189,7 +230,7 @@
       });
       pageTurnSound.pause();
       pageTurnSound.currentTime = 0;
-      sounds[soundIndex].play().catch(() => {});
+      noteAudio(sounds[soundIndex]);
     } catch (_) {}
   }
   function playPageTurnSound() {
@@ -199,7 +240,7 @@
       sounds.forEach(sound => { sound.pause(); sound.currentTime = 0; });
       pageTurnSound.pause();
       pageTurnSound.currentTime = 0;
-      pageTurnSound.play().catch(() => {});
+      noteAudio(pageTurnSound);
     } catch (_) {}
   }
   function restartAnimation(el, className) {
@@ -212,7 +253,7 @@
     const img = target?.closest?.('img');
     if (!img || img.closest('.bfx-mascot-target, #jw-header-image-container, .jw-mobile-header, .jw-header-logo, .boogey-download-counter, .boogey-download-increase-popup')) return null;
     const link = img.closest('a[href]');
-    const clues = `${img.alt || ''} ${img.title || ''} ${img.currentSrc || img.src || ''} ${link?.getAttribute('href') || ''}`.toLowerCase();
+    const clues = `${img.alt || ''} ${img.title || ''} ${img.currentSrc || img.src || ''} ${img.getAttribute('srcset') || ''} ${link?.getAttribute('href') || ''}`.toLowerCase();
     if (!/(cover|book|boek|ebook|comic|stripboek)/i.test(clues)) return null;
     return img.closest('picture.jw-element-image__image-wrapper, .jw-element-image__image-wrapper, picture') || img;
   }
@@ -227,10 +268,9 @@
   function findDownloadButton(target) {
     const control = target?.closest?.('a,button,[role="button"]');
     if (!control) return null;
-    const text = (control.textContent || '').trim().toLowerCase();
+    const text = `${control.textContent || ''} ${control.getAttribute('aria-label') || ''} ${control.getAttribute('title') || ''}`.trim().toLowerCase();
     const href = (control.getAttribute('href') || '').toLowerCase();
-    const classes = typeof control.className === 'string' ? control.className : '';
-    const genuineFileLink = href.includes('/_downloads/') && /js-download-link|jw-download-content__button/.test(classes);
+    const genuineFileLink = href.includes('/_downloads/');
     const explicitDownload = control.hasAttribute('download') || /download|downloaden/.test(text) && (control.matches('button,[role="button"]') || control.classList.contains('jw-btn'));
     return genuineFileLink || explicitDownload ? control : null;
   }
@@ -323,7 +363,7 @@
     }
   }, {capture: true});
   document.addEventListener('click', event => {
-    if (event.isTrusted && event.detail > 0 && !event.target.closest?.('input,textarea,select')) {
+    if (event.isTrusted && !event.target.closest?.('input,textarea,select')) {
       const cover = findBookCover(event.target);
       const mascot = event.target.closest?.('.bfx-mascot-target');
       const download = findDownloadButton(event.target);
@@ -353,6 +393,26 @@
       else if (!secret) playSignatureSound();
     }
   }, {capture: true});
+  document.addEventListener('click', event => {
+    // Give the cover a moment to open before an ordinary same-tab book link
+    // navigates away. Do not change downloads, modified clicks, new tabs,
+    // links handled by the website, or reduced-motion navigation.
+    if (!event.isTrusted || event.defaultPrevented || event.detail === 0 || event.button !== 0 ||
+        event.metaKey || event.ctrlKey || event.shiftKey || event.altKey ||
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const cover = findBookCover(event.target);
+    const link = event.target.closest?.('a[href]');
+    if (!cover || !link || link.hasAttribute('download') || findDownloadButton(link) ||
+        (link.target && link.target.toLowerCase() !== '_self')) return;
+    let destination;
+    try { destination = new URL(link.href, location.href); } catch (_) { return; }
+    if (!/^https?:$/.test(destination.protocol) || destination.origin !== location.origin ||
+        destination.pathname.startsWith('/_downloads/') || /\.(pdf|epub|mobi|zip|mp3|mp4)$/i.test(destination.pathname) ||
+        (destination.pathname === location.pathname && destination.search === location.search)) return;
+    event.preventDefault();
+    const href = destination.href;
+    setTimeout(() => location.assign(href), 800);
+  });
   document.addEventListener('keydown', event => {
     if (event.repeat || /INPUT|TEXTAREA|SELECT/.test(event.target?.tagName || '')) return;
     if (event.key.toLowerCase() === 'm') muted = !muted;
