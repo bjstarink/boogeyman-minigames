@@ -16,6 +16,9 @@
     sound.volume = 0.38;
     return sound;
   });
+  const pageTurnSound = new Audio(approvedAudio['club-storybook-flutter.mp3']);
+  pageTurnSound.preload = 'auto';
+  pageTurnSound.volume = 0.42;
   let muted = false;
   let lastSoundAt = 0;
   let lastSoundIndex = -1;
@@ -37,6 +40,37 @@
       72% { transform: scale(.995) rotate(.35deg); }
       100% { transform: scale(1) rotate(0deg); }
     }
+    @keyframes bfxBookOpening {
+      0%, 100% { transform: perspective(900px) rotateY(0deg); }
+      24% { transform: perspective(900px) rotateY(-20deg); }
+      48% { transform: perspective(900px) rotateY(-43deg); }
+      73% { transform: perspective(900px) rotateY(-15deg); }
+    }
+    @keyframes bfxMascotGesture {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      27% { transform: translateY(-2px) rotate(-2deg); }
+      55% { transform: translateY(-3px) rotate(1.5deg); }
+      78% { transform: translateY(-1px) rotate(-.5deg); }
+    }
+    @keyframes bfxDownloadAck {
+      0%, 100% { box-shadow: inset 0 0 0 0 rgba(185,255,53,0); }
+      38% { box-shadow: inset 0 0 0 2px rgba(185,255,53,.64), 0 0 9px rgba(185,255,53,.22); }
+    }
+    @keyframes bfxCardNudge {
+      0%, 100% { transform: scale(1); }
+      45% { transform: scale(.985) translateY(-1px); }
+    }
+    @keyframes bfxMascotSecret {
+      0%, 100% { transform: rotate(0); filter: none; }
+      25% { transform: rotate(-2deg); filter: brightness(1.12); }
+      55% { transform: rotate(2deg); filter: brightness(1.18); }
+      78% { transform: rotate(-1deg); filter: brightness(1.08); }
+    }
+    @keyframes bfxStarSparkle {
+      0%, 100% { opacity: 0; transform: scale(.35) rotate(-20deg); }
+      35% { opacity: .95; transform: scale(1) rotate(8deg); }
+      70% { opacity: .7; transform: scale(.75) rotate(24deg); }
+    }
     .bfx-reveal { animation: bfxReveal 780ms cubic-bezier(.2,.78,.25,1) both; }
     img.bfx-drift {
       animation: bfxDrift var(--bfx-duration, 6.8s) ease-in-out var(--bfx-delay, 0s) infinite;
@@ -49,12 +83,69 @@
       transition: transform 260ms ease;
     }
     .bfx-tap { animation: bfxTap 520ms cubic-bezier(.2,.8,.25,1); }
+    .bfx-book-opening {
+      animation: bfxBookOpening 760ms cubic-bezier(.2,.75,.25,1);
+      transform-origin: left center;
+      transform-style: preserve-3d;
+      will-change: transform;
+    }
+    .bfx-mascot-gesture {
+      animation: bfxMascotGesture 470ms cubic-bezier(.2,.8,.25,1);
+      transform-origin: 50% 85%;
+      will-change: transform;
+    }
+    .bfx-download-ack { animation: bfxDownloadAck 820ms ease-out; }
+    .bfx-book-card { transition: transform 220ms ease; transform-origin: center center; }
+    @media (hover: hover) {
+      .bfx-book-card:hover { transform: scale(.985) translateY(-1px); }
+    }
+    .bfx-book-card-tap { animation: bfxCardNudge 560ms ease-in-out; }
+    .bfx-mascot-secret { animation: bfxMascotSecret 950ms ease-in-out; transform-origin: 50% 85%; }
+    .bfx-sparkles { position: fixed; z-index: 2147483646; pointer-events: none; overflow: visible; }
+    .bfx-sparkles span { position: absolute; color: #ffd76a; font: 12px/1 sans-serif; text-shadow: 0 0 5px #ffe7a0; animation: bfxStarSparkle 1150ms ease-out both; }
+    .bfx-sparkles span:nth-child(1) { left: -7px; top: -5px; }
+    .bfx-sparkles span:nth-child(2) { right: -7px; top: -5px; animation-delay: 100ms; }
+    .bfx-sparkles span:nth-child(3) { left: 28%; bottom: -6px; animation-delay: 200ms; font-size: 9px; }
+    .bfx-sparkles span:nth-child(4) { right: 23%; bottom: -6px; animation-delay: 150ms; font-size: 9px; }
     @media (prefers-reduced-motion: reduce) {
-      .bfx-reveal, img.bfx-drift, .bfx-tap { animation: none !important; }
+      .bfx-reveal, img.bfx-drift, .bfx-tap, .bfx-book-opening, .bfx-mascot-gesture, .bfx-download-ack, .bfx-book-card-tap, .bfx-mascot-secret, .bfx-sparkles span { animation: none !important; }
       img.bfx-drift { transform: none !important; }
+      .bfx-book-card:hover { transform: none !important; }
+      .bfx-sparkles { display: none !important; }
     }
   `;
   (document.head || document.documentElement).appendChild(style);
+
+  function markMascotTargets(root = document) {
+    const images = [];
+    if (root.matches?.('img')) images.push(root);
+    images.push(...(root.querySelectorAll?.('img') || []));
+    images.forEach(img => {
+      const alt = (img.alt || '').toLowerCase();
+      const source = `${img.getAttribute('src') || ''} ${img.getAttribute('srcset') || ''}`.toLowerCase();
+      let target = null;
+      if (site === 'club' && alt.includes('boogeyman beater club')) {
+        target = img.closest('#jw-header-image-container, .jw-mobile-header-content');
+      } else if (site === 'stinkybinky' && source.includes('stinkybinky-comics-banner-1')) {
+        target = img.closest('picture') || img;
+      }
+      target?.classList.add('bfx-mascot-target');
+    });
+  }
+  markMascotTargets();
+  markBookCards();
+  new MutationObserver(records => records.forEach(record => {
+    if (record.type === 'attributes') {
+      markMascotTargets(record.target.parentElement || document);
+      markBookCards(record.target.parentElement || document);
+    }
+    record.addedNodes?.forEach(node => {
+      if (node.nodeType === 1) {
+        markMascotTargets(node);
+        markBookCards(node);
+      }
+    });
+  })).observe(document.documentElement, {childList: true, subtree: true, attributes: true, attributeFilter: ['href', 'action', 'src', 'srcset']});
 
   const revealTargets = [...document.querySelectorAll('h1,h2,h3,p,li')];
   const animateTarget = (el, index) => {
@@ -96,9 +187,133 @@
         sound.pause();
         sound.currentTime = 0;
       });
+      pageTurnSound.pause();
+      pageTurnSound.currentTime = 0;
       sounds[soundIndex].play().catch(() => {});
     } catch (_) {}
   }
+  function playPageTurnSound() {
+    if (muted) return;
+    lastSoundAt = Date.now();
+    try {
+      sounds.forEach(sound => { sound.pause(); sound.currentTime = 0; });
+      pageTurnSound.pause();
+      pageTurnSound.currentTime = 0;
+      pageTurnSound.play().catch(() => {});
+    } catch (_) {}
+  }
+  function restartAnimation(el, className) {
+    if (!el) return;
+    el.classList.remove(className);
+    void el.offsetWidth;
+    el.classList.add(className);
+  }
+  function findBookCover(target) {
+    const img = target?.closest?.('img');
+    if (!img || img.closest('.bfx-mascot-target, #jw-header-image-container, .jw-mobile-header, .jw-header-logo, .boogey-download-counter, .boogey-download-increase-popup')) return null;
+    const link = img.closest('a[href]');
+    const clues = `${img.alt || ''} ${img.title || ''} ${img.currentSrc || img.src || ''} ${link?.getAttribute('href') || ''}`.toLowerCase();
+    if (!/(cover|book|boek|ebook|comic|stripboek)/i.test(clues)) return null;
+    return img.closest('picture.jw-element-image__image-wrapper, .jw-element-image__image-wrapper, picture') || img;
+  }
+  function markBookCards(root = document) {
+    const images = [];
+    if (root.matches?.('img')) images.push(root);
+    images.push(...(root.querySelectorAll?.('img') || []));
+    images.forEach(img => {
+      if (findBookCover(img)) img.closest('.jw-image')?.classList.add('bfx-book-card');
+    });
+  }
+  function findDownloadButton(target) {
+    const control = target?.closest?.('a,button,[role="button"]');
+    if (!control) return null;
+    const text = (control.textContent || '').trim().toLowerCase();
+    const href = (control.getAttribute('href') || '').toLowerCase();
+    const classes = typeof control.className === 'string' ? control.className : '';
+    const genuineFileLink = href.includes('/_downloads/') && /js-download-link|jw-download-content__button/.test(classes);
+    const explicitDownload = control.hasAttribute('download') || /download|downloaden/.test(text) && (control.matches('button,[role="button"]') || control.classList.contains('jw-btn'));
+    return genuineFileLink || explicitDownload ? control : null;
+  }
+
+  // A rating attempt is not a success: wait for the replaced JouwWeb widget
+  // to show both its voted state and an increased vote count.
+  const pendingRatings = new Map();
+  const pendingComments = new Map();
+  const maxReviewWait = 120000;
+  function voteCount(rating) {
+    const summary = rating?.querySelector('.jw-element-rating__text--summary');
+    if (!summary) return null;
+    const digits = summary.textContent.replace(/[^0-9]/g, '');
+    return digits ? Number(digits) : null;
+  }
+  function armRating(rating) {
+    const content = rating?.querySelector('.jw-element-rating-content');
+    const count = voteCount(rating);
+    if (!rating?.id || !rating.dataset.jwElementId || !content ||
+        content.classList.contains('jw-element-rating--voted') ||
+        !content.classList.contains('jw-element-rating--voting-enabled') ||
+        !Number.isSafeInteger(count)) return;
+    pendingRatings.set(rating.id, {original: rating, count, at: Date.now()});
+  }
+  function sparkleStars(container) {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const stars = container?.querySelector('.jw-element-rating__stars');
+    if (!stars) return;
+    const rect = stars.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const sparkle = document.createElement('div');
+    sparkle.className = 'bfx-sparkles';
+    sparkle.setAttribute('aria-hidden', 'true');
+    Object.assign(sparkle.style, {left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px`});
+    for (let i = 0; i < 4; i++) {
+      const star = document.createElement('span');
+      star.textContent = '✦';
+      sparkle.appendChild(star);
+    }
+    document.body.appendChild(sparkle);
+    setTimeout(() => sparkle.remove(), 1500);
+  }
+  document.addEventListener('click', event => {
+    if (!event.isTrusted) return;
+    const label = event.target.closest?.('.jw-rating label.jw-element-rating__star');
+    if (label) armRating(label.closest('.jw-rating'));
+  }, true);
+  document.addEventListener('submit', event => {
+    if (!event.isTrusted || !event.target?.matches) return;
+    const form = event.target;
+    if (form.matches('.jw-rating form[name="rating"]')) {
+      armRating(form.closest('.jw-rating'));
+    } else if (form.matches('.jw-comment-module form[name="comment"]')) {
+      const parent = form.parentElement;
+      if (parent) pendingComments.set(form, {parent, module: form.closest('.jw-comment-module'), previous: new Set(parent.querySelectorAll('.jw-comment-success')), at: Date.now()});
+    }
+  }, true);
+  new MutationObserver(() => {
+    const now = Date.now();
+    for (const [id, pending] of pendingRatings) {
+      if (now - pending.at > maxReviewWait) { pendingRatings.delete(id); continue; }
+      const replacement = document.getElementById(id);
+      if (!replacement || replacement === pending.original || !replacement.classList.contains('jw-rating')) continue;
+      pendingRatings.delete(id);
+      const count = voteCount(replacement);
+      if (replacement.dataset.jwElementId === pending.original.dataset.jwElementId &&
+          replacement.querySelector('.jw-element-rating--voted') && Number.isSafeInteger(count) && count > pending.count) sparkleStars(replacement);
+    }
+    for (const [form, pending] of pendingComments) {
+      if (now - pending.at > maxReviewWait) { pendingComments.delete(form); continue; }
+      if (form.isConnected) continue;
+      const success = [...pending.parent.querySelectorAll('.jw-comment-success')].find(el => !pending.previous.has(el) && el.textContent.trim());
+      if (success) {
+        pendingComments.delete(form);
+        // Only sparkle stars belonging to the same review/comment widget.
+        sparkleStars(pending.module);
+      }
+    }
+  }).observe(document.documentElement, {childList: true, subtree: true});
+
+  let mascotTapTarget = null;
+  let mascotTapCount = 0;
+  let lastMascotTapAt = 0;
   document.addEventListener('pointerdown', event => {
     const target = event.target.closest?.('a,button,h1,h2,h3,p,li,img,[role="button"]') || event.target;
     if (target && !target.closest?.('input,textarea,select')) {
@@ -109,7 +324,33 @@
   }, {capture: true});
   document.addEventListener('click', event => {
     if (event.isTrusted && event.detail > 0 && !event.target.closest?.('input,textarea,select')) {
-      playSignatureSound();
+      const cover = findBookCover(event.target);
+      const mascot = event.target.closest?.('.bfx-mascot-target');
+      const download = findDownloadButton(event.target);
+      if (cover) restartAnimation(cover, 'bfx-book-opening');
+      if (cover) restartAnimation(cover.closest('.bfx-book-card'), 'bfx-book-card-tap');
+      let secret = false;
+      if (mascot) {
+        const now = Date.now();
+        if (mascot !== mascotTapTarget || now - lastMascotTapAt > 6000) mascotTapCount = 0;
+        mascotTapTarget = mascot;
+        lastMascotTapAt = now;
+        secret = ++mascotTapCount >= 3;
+        if (secret) {
+          mascotTapCount = 0;
+          sounds.forEach(sound => { sound.pause(); sound.currentTime = 0; });
+          pageTurnSound.pause();
+          pageTurnSound.currentTime = 0;
+          mascot.classList.remove('bfx-mascot-gesture');
+          restartAnimation(mascot, 'bfx-mascot-secret');
+        } else {
+          mascot.classList.remove('bfx-mascot-secret');
+          restartAnimation(mascot, 'bfx-mascot-gesture');
+        }
+      }
+      if (download) restartAnimation(download, 'bfx-download-ack');
+      if (cover) playPageTurnSound();
+      else if (!secret) playSignatureSound();
     }
   }, {capture: true});
   document.addEventListener('keydown', event => {
@@ -117,4 +358,5 @@
     if (event.key.toLowerCase() === 'm') muted = !muted;
   });
   window.__previewSoundTheme = site;
+  window.__boogeyExtendedEffectsLoaded = true;
 })();
